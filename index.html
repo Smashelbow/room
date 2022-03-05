@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+    <title>Babylon.js sample code</title>
+
+    <!-- Babylon.js -->
+    <script src="babylonjs/dat.gui.min.js"></script>
+    <script src="babylonjs/ammo.js"></script>
+    <script src="babylonjs/cannon.js"></script>
+    <script src="babylonjs/Oimo.js"></script>
+    <script src="babylonjs/earcut.min.js"></script>
+    <script src="babylonjs/babylon.js"></script>
+    <script src="babylonjs/babylonjs.materials.min.js"></script>
+    <script src="babylonjs/babylonjs.proceduralTextures.min.js"></script>
+    <script src="babylonjs/babylonjs.postProcess.min.js"></script>
+    <script src="babylonjs/babylonjs.loaders.js"></script>
+    <script src="babylonjs/babylonjs.serializers.min.js"></script>
+    <script src="babylonjs/babylon.gui.min.js"></script>
+    <script src="babylonjs/babylon.inspector.bundle.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        var canvas = document.getElementById("renderCanvas");
+
+        var engine = new BABYLON.Engine(canvas, true);
+
+        var scene = null;
+        var sceneToRender = null;
+        var createDefaultEngine = function () { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, disableWebGL2Support: false }); };
+        engine.setHardwareScalingLevel(0.4);
+
+        const createScene = () => {
+            const scene = new BABYLON.Scene(engine);
+
+            scene.clearColor = new BABYLON.Color3.FromHexString("#1E282F")
+            const camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 2.5, 3, new BABYLON.Vector3(3, 1, 0));
+            camera.target = new BABYLON.Vector3(0, 1, 0)
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0));
+            light.specular = new BABYLON.Color3.Black
+
+            camera.wheelDeltaPercentage = 0.01
+            camera.minZ = 0.1
+            // camera.upperRadiusLimit = 9.2
+            // camera.lowerRadiusLimit = 8
+            // camera.lowerAlphaLimit = 1.54
+            // camera.upperAlphaLimit = 1.56
+            // camera.upperBetaLimit = 1.56
+            // camera.lowerBetaLimit = 1.54
+            // camera.panningSensibility = 0
+            camera.angularSensibilityX = 2000
+            camera.angularSensibilityY = 2000
+            // camera.attachControl(canvas, true);
+
+            //hdr环境贴图
+            var hdrTexture = new BABYLON.CubeTexture.CreateFromPrefilteredData("hdr/nv.env", scene);
+            //hdrTexture.level = 0.5
+            scene.environmentTexture = hdrTexture
+
+            //创建预设天空盒就能让物体受到环境贴图的光照
+            // var hdrSkybox = scene.createDefaultSkybox(hdrTexture, true);
+
+            // var hdrSkyboxMaterial = hdrSkybox.material
+            // hdrSkyboxMaterial.backFaceCulling = false;
+            // //hdrSkyboxMaterial.reflectionTexture = hdrTexture
+            // //hdrSkyboxMaterial.reflectionTexture.coordinatesMode = BABYLON.Texture.EXPLICIT_MODE;
+            // //hdrSkyboxMaterial.microSurface = 1.0;
+            // //hdrSkyboxMaterial.cameraExposure = 1;
+            // //hdrSkyboxMaterial.cameraContrast = 0;
+            // hdrSkyboxMaterial.disableLighting = true;
+            // hdrSkyboxMaterial.roughness = 0.15;
+            // //hdrSkybox.material = hdrSkyboxMaterial;
+            // hdrSkybox.infiniteDistance = true;//不可接近
+
+            // scene.debugLayer.show({ showExplorer: true });//传说中的inspector调试工具
+
+            // scene.enablePhysics();
+            BABYLON.SceneLoader.Append("mesh/", "casa2.glb", scene, function (scene) {
+                //创建预设灯光和摄像头，应该会自动对准模型，应该是，除非不是
+                // scene.createDefaultCameraOrLight(true, false, false);
+                scene.activeCamera.attachControl(canvas)
+                scene.activeCamera.alpha = 0
+                scene.textures.forEach(tex => {
+                    tex.updateSamplingMode(6)
+                    tex.wrapU = BABYLON.Constants.TEXTURE_CLAMP_ADDRESSMODE;
+                    tex.wrapV = BABYLON.Constants.TEXTURE_CLAMP_ADDRESSMODE;
+
+                })
+
+                scene.materials.forEach(mat => {
+
+                    if (mat.name.indexOf("silver") !== -1) {
+                        mat.indexOfRefraction = 2
+                        mat.metallicF0Factor = 3
+
+                    }
+
+                })
+
+
+
+                // scene.meshes.forEach(mesh => {
+                //     mesh.parent = null
+                //     if (mesh.name.indexOf("box") !== -1) {
+
+                //         mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 4, restitution: 0 });
+
+                //     }
+                //     if (mesh.name.indexOf("ground") !== -1) {
+                //         mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0 })
+                //     }
+                // })
+
+
+
+
+
+
+
+
+                //抗锯齿，辉光,红蓝偏移，锐化,杂色
+                var defaultPipeline = new BABYLON.DefaultRenderingPipeline("default", false, scene, [scene.activeCamera]);
+                defaultPipeline.fxaaEnabled = true;
+                defaultPipeline.bloomEnabled = true
+                defaultPipeline.bloomKernel = 128
+                defaultPipeline.bloomWeight = 0.2
+                defaultPipeline.bloomThreshold = 0.25
+                defaultPipeline.samples = 16
+                defaultPipeline.chromaticAberrationEnabled = 1
+                defaultPipeline.chromaticAberration.aberrationAmount = 10
+                defaultPipeline.chromaticAberration.radialIntensity = 1
+                defaultPipeline.sharpenEnabled = 1
+                defaultPipeline.sharpen.edgeAmount = 0.2
+                defaultPipeline.sharpen.colorAmount = 1
+                defaultPipeline.grainEnabled = 1
+                defaultPipeline.grain.intensity = 4
+                defaultPipeline.imageProcessing.vignetteEnabled = true
+                defaultPipeline.imageProcessing.vignetteWeight = 10
+                defaultPipeline.imageProcessing.vignetteCameraFov = 0.15
+                defaultPipeline.imageProcessing.vignetteStretch = 1
+                defaultPipeline.imageProcessing.contrast = 1.5
+                defaultPipeline.imageProcessing.exposure = 1.5
+
+
+
+            });
+
+
+
+            return scene;
+        }
+        window.initFunction = async function () {
+            var asyncEngineCreation = async function () {
+                try {
+                    return createDefaultEngine();
+                } catch (e) {
+                    console.log("the available createEngine function failed. Creating the default engine instead");
+                    return createDefaultEngine();
+                }
+            }
+
+            window.engine = await asyncEngineCreation();
+            if (!engine) throw 'engine should not be null.';
+            window.scene = createScene();
+        };
+        initFunction().then(() => {
+            sceneToRender = scene
+            engine.runRenderLoop(function () {
+                if (sceneToRender && sceneToRender.activeCamera) {
+                    sceneToRender.render();
+                }
+            });
+        });
+
+        // Resize
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
+
+</html>
